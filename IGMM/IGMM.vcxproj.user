@@ -5,7 +5,7 @@
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <LocalDebuggerCommandArguments>C:\Users\hzyereba\Desktop\ExperimentKit\experiments\simulated\results\run6\toy.matrix C:\Users\hzyereba\Desktop\ExperimentKit\experiments\simulated\results\run6\toy_mean.matrix C:\Users\hzyereba\Desktop\ExperimentKit\experiments\simulated\results\run6\toy_psi.matrix C:\Users\hzyereba\Desktop\ExperimentKit\experiments\simulated\results\run6\toy_params.matrix 1500 1000 50</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>experiments/parallel/Indian/pines.matrix experiments/parallel/Indian/pines_NIWprior.matrix experiments/parallel/Indian/pines_params.matrix 2000 1600 experiments/parallel/Indian/pines</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
     <LocalDebuggerWorkingDirectory>..\..\ExperimentKit</LocalDebuggerWorkingDirectory>
   </PropertyGroup>

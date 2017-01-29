@@ -169,25 +169,24 @@ void reid(list<DPMTable>& tables)
 
 double eta;
 PILL_DEBUG
-int main(int argc,char** argv)
+int main(int argc, char** argv)
 {
 	debugMode(1);
-	char* datafile = argv[1];
-	char* priorfile = argv[2];
-	char* configfile = argv[3];
-
 	generator.seed(time(NULL));
 	srand(time(NULL));
+
+	printf("Reading...\n");
+	DataSet ds(argc, argv);
 	// Default values , 1000 , 100  , out
-	if (argc>4)
+	if (argc > 4)
 		MAX_SWEEP = atoi(argv[4]);
-	if (argc>5)
+	if (argc > 5)
 		BURNIN = atoi(argv[5]);
 	if (argc > 6)
 		result_dir = argv[6];
 	else
 	{
-		string str(datafile);
+		string str(argv[1]);
 		result_dir = (char*)str.substr(0, str.find_last_of("/\\")).c_str();
 	}
 
@@ -201,76 +200,75 @@ int main(int argc,char** argv)
 		BURNIN = MAX_SWEEP - 2;
 		SAMPLE = 1; STEP = 1;
 	}
-	
+
 	step();
-					 // Computing buffer
+	// Computing buffer
 
 	string ss(result_dir);
 	ofstream nsampleslog(ss.append("nsamples.log"));
 
-	printf("Reading...\n");
-	DataSet ds(datafile,priorfile,configfile);
+
 	eta = m - d + 1;
 
-	precomputegamLn(2*(n+d)+1);  // With 0.5 increments
-	
-	Vector priormean(d); 
-	
-	Matrix priorvariance(d,d);
-	
-	Psi = ds.prior;
-	
+	precomputegamLn(2 * (n + d) + 1);  // With 0.5 increments
 
-	init_buffer(1,d);	// Only one calculation buffer
+	Vector priormean(d);
+
+	Matrix priorvariance(d, d);
+
+	Psi = ds.prior;
+
+
+	init_buffer(1, d);	// Only one calculation buffer
 
 	Psi.r = d; // Last row is shadowed
 	Psi.n = d*d;
-	mu0 =  ds.prior(d).copy();
-	
+	mu0 = ds.prior(d).copy();
 
-	
+
+
 
 	eta = eta;
-	priorvariance = Psi*((kappa+1)/((kappa)*eta));
+	priorvariance = Psi*((kappa + 1) / ((kappa)*eta));
 	priormean = mu0;
-	
-	Stut stt(priormean,priorvariance,eta); 
+
+	Stut stt(priormean, priorvariance, eta);
 	Vector loglik0 = stt.likelihood(ds.data);
 
 
 	// INITIALIZATION
-	list<DPMTable> tables,besttables;
-	vector<DPMCustomer> customers,bestcust;
-	Matrix     sampledLabels(SAMPLE,n);
+	list<DPMTable> tables, besttables;
+	vector<DPMCustomer> customers, bestcust;
+	Matrix     sampledLabels(SAMPLE, n);
 
 	customers.reserve(n);
 	tables.emplace_back(d); // First table
 
-	int i,j,k,nsweep,bestiter;
+	int i, j, k, nsweep, bestiter;
 
 
-	for (i=0;i<n;i++)
+	for (i = 0; i < n; i++)
 	{
-		customers.emplace_back(ds.data(i),loglik0[i]);
+		customers.emplace_back(ds.data(i), loglik0[i]);
 		customers[i].table = tables.begin(); // Assing table pointers to first table initially
 		tables.begin()->addInitPoint(ds.data(i));
 	}
-	
+
 	tables.front().calculateCov();
 	tables.front().calculateDist();
-	
+
 	DPMTable copy(d);
-	double newclust,max,sum,randvar,likelihood,best;
-	list<DPMTable>::iterator tit,titc;
+	double newclust, max, sum, randvar, likelihood, best;
+	list<DPMTable>::iterator tit, titc;
 	best = -INFINITY;
 	int nthd = thread::hardware_concurrency();
-	TotalLikelihood tl(customers,nthd*2);
+	TotalLikelihood tl(customers, nthd * 2);
 	ThreadPool tpool(nthd);
 	init_buffer(nthd, d);
-	for (nsweep=0;nsweep <= MAX_SWEEP;nsweep++)
+	for (nsweep = 0; nsweep <= MAX_SWEEP; nsweep++)
 	{
 
-		
+
 		Vector logprob = zeros(50);
 		int idx;
 		int k = 0;
@@ -278,7 +276,7 @@ int main(int argc,char** argv)
 		{
 			updateTables(tables);
 			tl.reset();
-			for (i = 0; i<tl.nchunks; i++)
+			for (i = 0; i < tl.nchunks; i++)
 				tpool.submit(tl);
 			tpool.waitAll(); // Wait for finishing all jobs
 			logprob[k] = tl.totalsum / n;
@@ -311,7 +309,7 @@ int main(int argc,char** argv)
 		updateTables(tables);
 
 		likelihood = 0;
-		for (i=0;i<n;i++)
+		for (i = 0; i < n; i++)
 		{
 			Vector& x = customers[i].data;
 			list<DPMTable>::iterator oldt = customers[i].table;
@@ -331,8 +329,8 @@ int main(int argc,char** argv)
 			{
 				table.loglikelihood = table.dist.likelihood(x);
 				table.logprob = table.loglikelihood + log(table.npoints);
-				if (table.logprob>max)
-					max =  table.logprob;
+				if (table.logprob > max)
+					max = table.logprob;
 			}
 
 			for (DPMTable& table : tables)
@@ -340,12 +338,12 @@ int main(int argc,char** argv)
 				table.logprob = exp(table.logprob - max);
 				sum += table.logprob;
 			}
-			
+
 			sum += exp(newclust - max);
 
 			randvar = urand()*sum;
 
-			for(tit=tables.begin();tit!=tables.end();tit++)
+			for (tit = tables.begin(); tit != tables.end(); tit++)
 			{
 				if (tit->logprob >= randvar)
 				{
@@ -355,7 +353,7 @@ int main(int argc,char** argv)
 				randvar -= tit->logprob;
 			}
 
-			if (tit==tables.end()) // Not in current tables add new one
+			if (tit == tables.end()) // Not in current tables add new one
 			{
 				tables.emplace_front(d); // New empty table
 				tit = tables.begin();
@@ -366,7 +364,7 @@ int main(int argc,char** argv)
 			likelihood += tit->loglikelihood;
 
 
-			if (tit==oldt)
+			if (tit == oldt)
 				*tit = copy;
 			else
 				tit->addPoint(x); // Add point to selected one
@@ -380,14 +378,14 @@ int main(int argc,char** argv)
 		}
 		nsampleslog << endl;
 
-		
+
 
 		if (likelihood > best)
 		{
 			best = likelihood;
 			bestiter = nsweep;
 			besttables = tables;
-			for(tit=tables.begin(),titc=besttables.begin();tit!=tables.end();tit++,titc++)
+			for (tit = tables.begin(), titc = besttables.begin(); tit != tables.end(); tit++, titc++)
 				tit->copy = titc;
 			bestcust = customers;
 			for (DPMCustomer& cust : bestcust)
@@ -401,51 +399,56 @@ int main(int argc,char** argv)
 			{
 				for (tit = tables.begin(), i = 0; tit != tables.end(); tit++, i++)
 					tit->tableid = i;
-				for (i = 0; i<n; i++)
+				for (i = 0; i < n; i++)
 					sampledLabels(sampleno)[i] = customers[i].table->tableid;
 			}
 		}
 
 
-		printf("Iter %d Likelihood %f nTables %d\n",nsweep,likelihood,tables.size());
+		printf("Iter %d Likelihood %f nTables %d\n", nsweep, likelihood, tables.size());
 		flush(cout);
 	}
 
 
-	
-	string s(result_dir);
-	ofstream tablefile(s.append("tables.bin"),ios::out | ios::binary); // Be careful result_dir should include '\'
+	try {
+		string s(result_dir);
+		ofstream tablefile(s.append("tables.bin"), ios::out | ios::binary); // Be careful result_dir should include '\'
 
-	i=0;
-	int ntables = besttables.size();
-	tablefile.write((char*)& ntables,sizeof(int));
-	for (DPMTable& table : besttables)
-	{
-		i++;
-		table.tableid = i;
-		tablefile << table;
+		i = 0;
+		int ntables = besttables.size();
+		tablefile.write((char*)& ntables, sizeof(int));
+		for (DPMTable& table : besttables)
+		{
+			i++;
+			table.tableid = i;
+			tablefile << table;
+		}
+		tablefile.close();
+
+
+
+		s.assign(result_dir);
+		ofstream customerfile(s.append("customers.bin"), ios::out | ios::binary);
+		int ncust = customers.size();
+		customerfile.write((char*)& ncust, sizeof(int));
+		for (DPMCustomer& cust : bestcust)
+		{
+			customerfile << cust;
+		}
+		customerfile.close();
+
+
+		s.assign(result_dir);
+		ofstream labelsout(s.append("Labels.matrix"), ios::out | ios::binary);
+		labelsout << sampledLabels;
+		labelsout.close();
+
+		nsampleslog.close();
+
+		printf("Best number of tables %d gives likelihood %f in iter %d\n", besttables.size(), best, bestiter);
 	}
-	tablefile.close();
-
-
-
-	s.assign(result_dir);
-	ofstream customerfile( s.append("customers.bin"),ios::out | ios::binary);
-	int ncust = customers.size();
-	customerfile.write((char*)& ncust,sizeof(int));
-	for (DPMCustomer& cust : bestcust)
+	catch (exception e)
 	{
-		customerfile << cust;
+		cout << "Error in writing files" << endl;
 	}
-	customerfile.close();
-
-
-	s.assign(result_dir);
-	ofstream labelsout( s.append("Labels.matrix"),ios::out | ios::binary);
-	labelsout << sampledLabels;
-	labelsout.close();
-
-	nsampleslog.close();
-
-	printf("Best number of tables %d gives likelihood %f in iter %d\n",besttables.size(),best,bestiter);
 }
